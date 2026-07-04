@@ -758,10 +758,25 @@ function ask(q){
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({
       question:q, account: AUDIT.available.account,
-      computed:{ headline:computed.headline, facts:computed.facts||computed.prose||[],
-                 table: computed.table? {cols:computed.table.cols, rows:computed.table.rows}:null,
-                 steps: computed.steps||[] }
-    })
+     computed:{
+ headline: computed.headline,
+
+ facts: computed.facts || computed.prose || [],
+
+ table: computed.table ? {
+   cols: computed.table.cols,
+   rows: computed.table.rows
+ } : null,
+
+ steps: computed.steps || [],
+
+ rawData:{
+   summary: AUDIT.summary,
+   campaigns: AUDIT.campaigns || [],
+   keywords: AUDIT.keywords || [],
+   asins: AUDIT.asins || []
+ }
+})
   }).then(r=>r.json()).then(d=>{
     finish(d.answer ? d.answer.split('\n').filter(Boolean) : null);
   }).catch(()=>finish(null));
