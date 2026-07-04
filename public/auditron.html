@@ -678,10 +678,37 @@ function answer(q){
   if(/waste|zero|no sale|burn/.test(ql)&&AUDIT.available.ads){
     const z=K.filter(k=>k.spend>=5&&k.sales===0).sort((a,b)=>b.spend-a.spend).slice(0,lim);
     const waste=z.reduce((x,k)=>x+k.spend,0);
-    return {headline:`${z.length} keywords burning ${f$(waste)} with zero sales`,
-      prose:[`These ${z.length} keywords each spent \u2265$5 and returned nothing. Worst is "${z[0]?.keyword}" at ${f$(z[0]?.spend||0)}.`],
-      table:{cols:['Keyword','Match','Campaign','Spend','Clicks'],rows:z.map(k=>[k.keyword,k.matchType,(k.campaignName||'').slice(0,22),f$(k.spend),k.clicks])},
-      steps:[`Pause these ${z.length} keywords to recover ${f$(waste)}`,'Add them as exact-match negatives to stop broad-match bleed']};
+    return {
+ headline:`${z.length} keywords burning ${f$(waste)} with zero sales`,
+
+ facts:[
+   `Waste calculation = SUM(spend where sales = 0)`,
+   `Zero sales keyword count = ${z.length}`,
+   `Total wasted spend = ${f$(waste)}`,
+   `Highest waste keyword = ${z[0]?.keyword} with spend ${f$(z[0]?.spend||0)}`,
+   `Top waste rows used: ${z.slice(0,5).map(k=>`${k.keyword}: ${f$(k.spend)}`).join(', ')}`
+ ],
+
+ prose:[
+   `Found ${z.length} keywords with spend but zero sales. Total recoverable waste is ${f$(waste)}.`
+ ],
+
+ table:{
+   cols:['Keyword','Match','Campaign','Spend','Clicks'],
+   rows:z.map(k=>[
+     k.keyword,
+     k.matchType,
+     (k.campaignName||'').slice(0,22),
+     f$(k.spend),
+     k.clicks
+   ])
+ },
+
+ steps:[
+   `Pause these ${z.length} keywords to recover ${f$(waste)}`,
+   'Add them as exact-match negatives to stop broad-match bleed'
+ ]
+};
   }
   if(/acos|expensive/.test(ql)&&AUDIT.available.ads){
     const h=K.filter(k=>k.sales>0&&k.acos>0.4).sort((a,b)=>b.acos-a.acos).slice(0,lim);
