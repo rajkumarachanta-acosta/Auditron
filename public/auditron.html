@@ -519,7 +519,7 @@ td.mono{font-family:'IBM Plex Mono',monospace}
 // ── GPT endpoint config ──
 // Local file (double-click): leave empty → deterministic expert answers.
 // Deployed on Vercel: set to '/api/ask' → GPT-4o narrates on top.
-window.AUDITRON_API = '';   // ⚠ Bob: change to '/api/ask' after deploying the route
+window.AUDITRON_API = '/api/ask';   // ⚠ Bob: change to '/api/ask' after deploying the route
 const E = AuditEngine;
 let AUDIT = null;
 const $ = s => document.querySelector(s);
