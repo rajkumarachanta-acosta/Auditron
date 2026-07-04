@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auditron — Amazon Data Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --ink:#0b1020; --panel:#121a33; --panel2:#0e1528; --line:#222e52;
+  --text:#e8ecff; --muted:#8b97c4; --acc:#5b8cff; --acc2:#22d3ee;
+  --good:#34e5b8; --warn:#ffb454; --bad:#ff6b8b; --violet:#a78bfa;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--ink);color:var(--text);font-family:'Sora',system-ui,sans-serif;min-height:100vh}
+.mono{font-family:'IBM Plex Mono',monospace}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+
+/* header */
+header{border-bottom:1px solid var(--line);background:linear-gradient(180deg,var(--panel),transparent);position:sticky;top:0;z-index:10;backdrop-filter:blur(10px)}
+.hbar{display:flex;align-items:center;justify-content:space-between;padding:16px 0}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px;letter-spacing:-.02em}
+.logo b{background:linear-gradient(90deg,var(--acc2),var(--acc),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+.mark{width:26px;height:26px;border-radius:8px;background:conic-gradient(from 210deg,var(--acc2),var(--acc),var(--violet),var(--acc2));box-shadow:0 0 20px rgba(91,140,255,.5)}
+.status{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:7px}
+.status .d{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.status.ready .d{background:var(--good);box-shadow:0 0 10px var(--good)}
+
+/* hero / dropzone */
+.hero{padding:56px 0 30px;text-align:center}
+.hero h1{font-size:38px;font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:12px}
+.hero h1 span{background:linear-gradient(90deg,var(--acc2),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{color:var(--muted);font-size:16px;max-width:560px;margin:0 auto 30px}
+.drop{border:1.5px dashed var(--line);border-radius:18px;background:var(--panel2);padding:44px;cursor:pointer;transition:.2s;max-width:620px;margin:0 auto}
+.drop:hover,.drop.hot{border-color:var(--acc);background:#0f1830;box-shadow:0 0 40px rgba(91,140,255,.15)}
+.drop .ic{font-size:34px;margin-bottom:12px}
+.drop b{font-size:16px}
+.drop small{display:block;color:var(--muted);margin-top:6px;font-size:13px}
+.priv{margin-top:16px;font-size:12px;color:var(--muted)}
+.priv b{color:var(--good)}
+.prog{max-width:620px;margin:22px auto 0;display:none}
+.prog.on{display:block}
+.prog .bar{height:8px;background:var(--panel);border:1px solid var(--line);border-radius:99px;overflow:hidden}
+.prog .fill{height:100%;width:0;background:linear-gradient(90deg,var(--acc),var(--acc2));transition:width .25s;border-radius:99px}
+.prog .txt{margin-top:8px;font-size:13px;color:var(--muted)}
+
+/* loaded files */
+.files{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:22px}
+.fchip{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:13px}
+.fchip .k{font-size:11px;padding:2px 8px;border-radius:6px;font-weight:600}
+.k.ads{background:rgba(91,140,255,.15);color:var(--acc)}
+.k.sales{background:rgba(52,229,184,.15);color:var(--good)}
+.k.traffic{background:rgba(167,139,250,.15);color:var(--violet)}
+.k.unknown{background:rgba(255,107,139,.15);color:var(--bad)}
+.fchip .rows{color:var(--muted)}
+
+/* dashboard */
+.dash{display:none;padding:30px 0 80px}
+.dash.on{display:block}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:24px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+.card .lbl{font-size:12px;color:var(--muted);margin-bottom:6px}
+.card .val{font-size:26px;font-weight:700}
+.card.score .val{background:linear-gradient(90deg,var(--good),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
+
+/* chat */
+.chat{background:var(--panel2);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.chat-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.chat-head b{font-size:15px}
+.chat-head small{color:var(--muted);font-size:12px}
+.msgs{padding:18px;min-height:220px;max-height:440px;overflow-y:auto;display:flex;flex-direction:column;gap:14px}
+.m{display:flex}
+.m.u{justify-content:flex-end}
+.b{max-width:88%;padding:13px 15px;border-radius:14px;font-size:14px;line-height:1.55}
+.b.u{background:linear-gradient(135deg,var(--acc),var(--violet));color:#fff;border-bottom-right-radius:5px}
+.b.a{background:var(--panel);border:1px solid var(--line);border-bottom-left-radius:5px}
+.b.a .hl{font-weight:700;margin-bottom:8px;background:linear-gradient(90deg,var(--acc2),var(--good));-webkit-background-clip:text;background-clip:text;color:transparent}
+.b.a p{margin-bottom:7px}
+.tbl{margin:10px 0;border:1px solid var(--line);border-radius:10px;overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:7px 9px;color:var(--acc2);font-size:10px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:7px 9px;border-bottom:1px solid rgba(255,255,255,.04);white-space:nowrap}
+td.mono{font-family:'IBM Plex Mono',monospace}
+.steps{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.steps .s{display:flex;gap:8px;margin-bottom:6px;font-size:13px}
+.steps .n{flex-shrink:0;width:18px;height:18px;border-radius:5px;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.sugg{display:flex;flex-wrap:wrap;gap:8px;padding:0 18px 14px}
+.sugg button{background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:8px 13px;font-size:12.5px;cursor:pointer;transition:.15s}
+.sugg button:hover{border-color:var(--acc2);color:var(--acc2)}
+.compose{display:flex;gap:10px;padding:14px 18px;border-top:1px solid var(--line)}
+.compose input{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;color:var(--text);font-size:14px;outline:none}
+.compose input:focus{border-color:var(--acc2)}
+.compose button{padding:0 22px;border:none;border-radius:12px;font-weight:700;color:#fff;cursor:pointer;background:linear-gradient(135deg,var(--acc),var(--violet))}
+.compose button:disabled{opacity:.5}
+.warns{margin-top:14px}
+.warns .w{font-size:13px;color:var(--warn);background:rgba(255,180,84,.08);border:1px solid rgba(255,180,84,.2);border-radius:10px;padding:10px 13px;margin-bottom:8px}
+.typing span{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--acc2);margin-right:4px;animation:bp 1.2s infinite}
+.typing span:nth-child(2){animation-delay:.15s;background:var(--violet)}
+.typing span:nth-child(3){animation-delay:.3s;background:var(--good)}
+@keyframes bp{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+.foot{text-align:center;color:var(--muted);font-size:12px;padding:24px 0}
+@media(max-width:640px){.hero h1{font-size:28px}.b{max-width:100%}}
+</style>
+</head>
+<body>
+<header><div class="wrap hbar">
+  <div class="logo"><span class="mark"></span>Audit<b>ron</b></div>
+  <div class="status" id="status"><span class="d"></span><span id="statusTxt">No files loaded</span></div>
+</div></header>
+
+<div class="wrap">
+  <section class="hero" id="hero">
+    <h1>Drop your Amazon data.<br><span>Ask it anything.</span></h1>
+    <p>Upload any Amazon report — ads, sales, traffic, inventory. Auditron auto-detects the file type, analyzes it, and answers like a 15-year Amazon strategist.</p>
+    <label class="drop" id="drop">
+      <div class="ic">⬆</div>
+      <b>Drop files or click to upload</b>
+      <small>.xlsx or .csv — bulk campaign, Vendor/Seller sales, traffic, inventory. Multiple files welcome.</small>
+      <input type="file" id="file" multiple accept=".xlsx,.xls,.csv,.tsv" hidden>
+    </label>
+    <div class="priv">🔒 <b>100% private</b> — files are parsed in your browser and never uploaded to a server.</div>
+    <div class="prog" id="prog"><div class="bar"><div class="fill" id="fill"></div></div><div class="txt" id="progTxt">Starting…</div></div>
+    <div class="files" id="files"></div>
+    <div class="warns" id="heroWarns"></div>
+  </section>
+
+  <section class="dash" id="dash">
+    <div class="cards" id="cards"></div>
+    <div class="chat">
+      <div class="chat-head"><b>Ask Auditron</b><small id="chatMeta"></small></div>
+      <div class="msgs" id="msgs"></div>
+      <div class="sugg" id="sugg"></div>
+      <div class="compose">
+        <input id="q" placeholder="e.g. Which keywords waste the most spend?">
+        <button id="ask">Ask</button>
+      </div>
+    </div>
+    <div class="warns" id="dashWarns"></div>
+  </section>
+</div>
+<div class="foot">Auditron · client-side Amazon analytics · demo build</div>
+
+<script id="engineSrc">var AuditEngine = (() => {
+  var __create = Object.create;
+  var __defProp = Object.defineProperty;
+  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+  var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __getProtoOf = Object.getPrototypeOf;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
+    get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
+  }) : x)(function(x) {
+    if (typeof require !== "undefined") return require.apply(this, arguments);
+    throw Error('Dynamic require of "' + x + '" is not supported');
+  });
+  var __export = (target, all) => {
+    for (var name in all)
+      __defProp(target, name, { get: all[name], enumerable: true });
+  };
+  var __copyProps = (to, from, except, desc) => {
+    if (from && typeof from === "object" || typeof from === "function") {
+      for (let key of __getOwnPropNames(from))
+        if (!__hasOwnProp.call(to, key) && key !== except)
+          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+    }
+    return to;
+  };
+  var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+    // If the importer is in node compatibility mode or this is not an ESM
+    // file that has been converted to a CommonJS file using a Babel-
+    // compatible transform (i.e. "__esModule" has not been set), then set
+    // "default" to the CommonJS "module.exports" for node compatibility.
+    isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+    mod
+  ));
+  var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+  // _entry.ts
+  var entry_exports = {};
+  __export(entry_exports, {
+    buildAudit: () => buildAudit,
+    detectAndMap: () => detectAndMap,
+    ingestFile: () => ingestFile,
+    ingestMany: () => ingestMany,
+    toNum: () => toNum
+  });
+
+  // lib/fileDetector.ts
+  var SYNONYMS = {
+    // identifiers
+    campaignName: ["campaign name", "campaign", "campaign name (informational only)"],
+    adGroupName: ["ad group name", "ad group", "ad group name (informational only)"],
+    keyword: ["keyword text", "keyword", "targeting"],
+    customerSearchTerm: ["customer search term", "search term"],
+    matchType: ["match type", "match"],
+    asin: ["asin", "advertised asin", "child asin", "(child) asin", "purchased asin"],
+    parentAsin: ["parent asin", "(parent) asin"],
+    sku: ["sku", "advertised sku", "merchant sku"],
+    productTitle: ["title", "product title", "product name", "item name"],
+    brand: ["brand", "brand name"],
+    // spend / ads
+    spend: ["spend", "cost", "ad spend"],
+    clicks: ["clicks"],
+    impressions: ["impressions"],
+    sales: ["sales", "7 day total sales", "7 day total sales ", "14 day total sales", "ad sales", "attributed sales", "sales (usd)", "ordered product sales - b2b", "advertised asin sales"],
+    orders: ["orders", "7 day total orders (#)", "14 day total orders (#)", "conversions", "purchases"],
+    units: ["units", "7 day total units (#)", "units ordered", "units sold", "shipped units"],
+    acos: ["acos", "total advertising cost of sales (acos)", "acos%"],
+    roas: ["roas", "total return on advertising spend (roas)"],
+    cpc: ["cpc", "cost per click (cpc)", "avg. cpc"],
+    bid: ["bid", "max bid", "keyword bid", "default bid"],
+    campaignBudget: ["budget", "daily budget", "campaign daily budget"],
+    state: ["state", "campaign state", "status", "keyword state", "ad group state"],
+    // vendor/seller sales & traffic
+    orderedRevenue: ["ordered revenue", "ordered product sales", "shipped revenue", "ordered revenue - b2b"],
+    orderedUnits: ["ordered units", "shipped units", "units ordered"],
+    glanceViews: ["glance views", "glance view", "sessions", "sessions - total", "sessions \u2013 total", "featured offer page views", "featured offer page views - total"],
+    pageViews: ["page views", "page views - total", "detail page views", "featured offer page views"],
+    shippedRevenue: ["shipped revenue"],
+    shippedCogs: ["shipped cogs"],
+    buyBox: ["buy box percentage", "featured offer (buy box) percentage", "buy box %"],
+    unitSessionPct: ["unit session percentage", "unit session percentage - total", "conversion rate"],
+    returnUnits: ["customer returns", "returned units", "return units", "returns"],
+    returnRate: ["return rate", "return %"],
+    // inventory
+    availableUnits: ["available", "afn fulfillable quantity", "available units", "sellable on hand units"],
+    inboundUnits: ["inbound", "afn inbound shipped quantity", "inbound units"],
+    daysOfSupply: ["days of supply", "days of cover"]
+  };
+  var SIGNATURES = [
+    // Search-term report is defined by the ACTUAL customer search term column.
+    // A campaign sheet has Keyword Text but NOT Customer Search Term — this is
+    // the decisive distinction. Checked first so it wins its tie legitimately.
+    { kind: "sp_search_term", must: ["customerSearchTerm"], boost: ["impressions", "clicks", "matchType", "acos", "campaignName"] },
+    { kind: "bulk_campaign", must: ["campaignName"], anyOf: ["bid", "state", "campaignBudget", "spend"], boost: ["bid", "matchType", "campaignBudget", "adGroupName", "state", "spend", "keyword"] },
+    // Vendor sales: ordered revenue is the tell.
+    { kind: "sales_vendor", must: ["orderedRevenue"], boost: ["orderedUnits", "asin", "brand", "shippedRevenue", "returnUnits"], account: "vendor" },
+    // Seller business report.
+    { kind: "sales_seller", must: ["units"], anyOf: ["glanceViews", "buyBox", "unitSessionPct"], boost: ["buyBox", "unitSessionPct", "sku"], account: "seller" },
+    // Traffic: newer Vendor files use "Featured Offer Page Views" (→ glanceViews OR pageViews).
+    { kind: "traffic", must: ["asin"], anyOf: ["glanceViews", "pageViews"], boost: ["buyBox", "brand"] },
+    { kind: "inventory", must: ["availableUnits"], boost: ["inboundUnits", "daysOfSupply", "sku"] }
+  ];
+  var norm = (s) => String(s ?? "").toLowerCase().trim().replace(/\s+/g, " ");
+  function mapHeaders(headers) {
+    const normalized = headers.map((h) => ({ raw: h, n: norm(h) }));
+    const mapping = {};
+    const present = /* @__PURE__ */ new Set();
+    for (const [canonical, syns] of Object.entries(SYNONYMS)) {
+      let hit = normalized.find((h) => syns.includes(h.n));
+      if (!hit) hit = normalized.find((h) => syns.some((s) => h.n === s));
+      if (!hit) hit = normalized.find((h) => syns.some((s) => h.n.includes(s) && s.length > 4));
+      if (hit) {
+        mapping[canonical] = hit.raw;
+        present.add(canonical);
+      }
+    }
+    return { mapping, canonicalPresent: present };
+  }
+  function classify(present) {
+    let best = { kind: "unknown", account: "unknown", confidence: 0 };
+    for (const sig of SIGNATURES) {
+      const hasMust = sig.must.every((m) => present.has(m));
+      if (!hasMust) continue;
+      if (sig.anyOf && sig.anyOf.length && !sig.anyOf.some((a) => present.has(a))) continue;
+      const boostHits = sig.boost.filter((b) => present.has(b)).length;
+      const confidence = 0.5 + 0.5 * (boostHits / Math.max(1, sig.boost.length));
+      if (confidence > best.confidence) {
+        best = { kind: sig.kind, account: sig.account ?? "unknown", confidence };
+      }
+    }
+    return best;
+  }
+  function toNum(v) {
+    if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+    if (v == null) return 0;
+    const s = String(v).replace(/[$,%\s]/g, "").replace(/,/g, "");
+    const n = parseFloat(s);
+    return Number.isFinite(n) ? n : 0;
+  }
+  function detectAndMap(rows, sheetName = "") {
+    const warnings = [];
+    if (!rows || rows.length === 0) {
+      return { kind: "unknown", account: "unknown", confidence: 0, rowCount: 0, mappedRows: [], rawHeaders: [], mapping: {}, warnings: ["Empty sheet"] };
+    }
+    const rawHeaders = Object.keys(rows[0]);
+    const { mapping, canonicalPresent } = mapHeaders(rawHeaders);
+    const cls = classify(canonicalPresent);
+    const sn = norm(sheetName);
+    let account = cls.account;
+    if (/sponsored (products|brands|display)/.test(sn) && cls.kind === "unknown") {
+      warnings.push(`Sheet "${sheetName}" looks like a bulk tab but columns didn't match cleanly`);
+    }
+    if (cls.account === "unknown") {
+      if (canonicalPresent.has("orderedRevenue")) account = "vendor";
+      else if (canonicalPresent.has("glanceViews") || canonicalPresent.has("buyBox")) account = "seller";
+    }
+    if (cls.confidence < 0.5) warnings.push(`Low confidence (${(cls.confidence * 100).toFixed(0)}%) \u2014 columns didn't strongly match a known report type`);
+    const invMap = Object.entries(mapping);
+    const mappedRows = rows.map((r) => {
+      const out = {};
+      for (const [canonical, orig] of invMap) out[canonical] = r[orig];
+      return out;
+    });
+    return {
+      kind: cls.kind,
+      account,
+      confidence: cls.confidence,
+      rowCount: rows.length,
+      mappedRows,
+      rawHeaders,
+      mapping,
+      warnings
+    };
+  }
+
+  // lib/ingest.ts
+  var XLSX = __toESM(__require("xlsx"));
+  function findHeaderRow(matrix) {
+    const tokens = ["campaign", "asin", "keyword", "impressions", "clicks", "spend", "units", "sessions", "ordered", "sku", "glance", "revenue", "page views", "product title", "brand", "match type"];
+    const isBannerCell = (c) => /=\[/.test(c) || /^(program|distributor view|view by|countries|businesses|locale|currency|reporting range|viewing range|report updated)/i.test(c.trim());
+    let bestIdx = 0;
+    let bestScore = -Infinity;
+    const scan = Math.min(matrix.length, 15);
+    for (let i = 0; i < scan; i++) {
+      const row = matrix[i] || [];
+      const cells = row.map((c) => String(c ?? ""));
+      const lower = cells.map((c) => c.toLowerCase());
+      const nonEmpty = lower.filter((c) => c.trim() !== "").length;
+      const tokenHits = lower.filter((c) => tokens.some((t) => c.includes(t))).length;
+      const bannerHits = cells.filter((c) => isBannerCell(c)).length;
+      const score = tokenHits * 5 + nonEmpty - bannerHits * 20;
+      if (score > bestScore) {
+        bestScore = score;
+        bestIdx = i;
+      }
+    }
+    return bestIdx;
+  }
+  function sheetToObjects(ws, cap = 0) {
+    const matrix = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", blankrows: false });
+    if (!matrix.length) return { rows: [], sampled: false, total: 0 };
+    const headerRow = findHeaderRow(matrix);
+    const headers = (matrix[headerRow] || []).map((h) => String(h ?? "").trim());
+    const dataStart = headerRow + 1;
+    const totalData = matrix.length - dataStart;
+    const limit = cap > 0 && totalData > cap ? dataStart + cap : matrix.length;
+    const out = [];
+    for (let i = dataStart; i < limit; i++) {
+      const row = matrix[i] || [];
+      if (row.every((c) => c === "" || c == null)) continue;
+      const obj = {};
+      headers.forEach((h, j) => {
+        if (h) obj[h] = row[j];
+      });
+      out.push(obj);
+    }
+    return { rows: out, sampled: limit < matrix.length, total: totalData };
+  }
+  var SEARCH_TERM_CAP = 2e4;
+  async function ingestFile(file) {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: "array", dense: true, cellDates: false, cellStyles: false, cellNF: false, cellFormula: false });
+    const sheets = [];
+    const multiTab = wb.SheetNames.length > 1;
+    for (const name of wb.SheetNames) {
+      if (/portfolio|help|read ?me|instructions|glossary|^config$/i.test(name)) continue;
+      if (multiTab && /^sheet\d+$/i.test(name)) continue;
+      const isSearchTerm = /search term/i.test(name);
+      const cap = isSearchTerm ? SEARCH_TERM_CAP : 0;
+      const { rows, sampled, total } = sheetToObjects(wb.Sheets[name], cap);
+      if (rows.length === 0) continue;
+      const detected = detectAndMap(rows, name);
+      if (sampled) detected.warnings.push(`Large tab "${name}" sampled: analyzing ${rows.length.toLocaleString()} of ${total.toLocaleString()} rows for speed. Waste patterns still surface; exact grand totals may differ slightly.`);
+      if (detected.kind !== "unknown" || detected.rowCount > 5) {
+        sheets.push(detected);
+      }
+    }
+    return { fileName: file.name, sheets };
+  }
+  async function ingestMany(files) {
+    const arr = Array.from(files);
+    const results = [];
+    for (const f of arr) {
+      try {
+        results.push(await ingestFile(f));
+      } catch (e) {
+        results.push({ fileName: f.name, sheets: [{ kind: "unknown", account: "unknown", confidence: 0, rowCount: 0, mappedRows: [], rawHeaders: [], mapping: {}, warnings: [`Failed to read: ${e?.message ?? "unknown error"}`] }] });
+      }
+    }
+    return results;
+  }
+
+  // lib/audit.ts
+  var safeDiv = (a, b) => b > 0 && Number.isFinite(a) ? a / b : 0;
+  function buildAudit(files) {
+    const warnings = [];
+    const collect = (kind) => files.filter((f) => f.kind === kind).flatMap((f) => f.mappedRows);
+    const campaignRows = collect("bulk_campaign");
+    const searchTermRows = collect("sp_search_term");
+    const salesRows = [...collect("sales_vendor"), ...collect("sales_seller")];
+    const trafficRows = collect("traffic");
+    const invRows = collect("inventory");
+    const account = files.find((f) => f.account !== "unknown")?.account ?? "unknown";
+    const campaignKeywordRows = campaignRows.filter((r) => r.keyword || r.customerSearchTerm);
+    const bulkRows = campaignKeywordRows.length > 0 ? campaignRows : searchTermRows;
+    const hasAds = campaignRows.length > 0 || searchTermRows.length > 0;
+    const hasSales = salesRows.length > 0;
+    const keywords = bulkRows.filter((r) => r.keyword || r.customerSearchTerm || r.campaignName).map((r) => {
+      const spend = toNum(r.spend), clicks = toNum(r.clicks), impressions = toNum(r.impressions);
+      const sales = toNum(r.sales), orders = toNum(r.orders);
+      return {
+        keyword: r.customerSearchTerm ?? r.keyword ?? "(campaign-level)",
+        matchType: r.matchType ?? "\u2014",
+        campaignName: r.campaignName ?? "\u2014",
+        spend,
+        clicks,
+        impressions,
+        sales,
+        orders,
+        acos: safeDiv(spend, sales),
+        cvr: safeDiv(orders, clicks),
+        ctr: safeDiv(clicks, impressions),
+        cpc: safeDiv(spend, clicks)
+      };
+    });
+    const campMap = {};
+    keywords.forEach((k) => {
+      const c = campMap[k.campaignName] ??= { name: k.campaignName, spend: 0, sales: 0, clicks: 0, impressions: 0, orders: 0 };
+      c.spend += k.spend;
+      c.sales += k.sales;
+      c.clicks += k.clicks;
+      c.impressions += k.impressions;
+      c.orders += k.orders;
+    });
+    const campaigns = Object.values(campMap).map((c) => ({
+      ...c,
+      acos: safeDiv(c.spend, c.sales),
+      cvr: safeDiv(c.orders, c.clicks),
+      ctr: safeDiv(c.clicks, c.impressions)
+    }));
+    const asinMap = {};
+    salesRows.forEach((r) => {
+      const id = r.asin ?? r.sku ?? "unknown";
+      const a = asinMap[id] ??= { asin: id, title: r.productTitle ?? "", brand: r.brand ?? "Unknown", revenue: 0, units: 0, returns: 0 };
+      a.revenue += toNum(r.orderedRevenue ?? r.sales);
+      a.units += toNum(r.orderedUnits ?? r.units);
+      a.returns += toNum(r.returnUnits);
+    });
+    trafficRows.forEach((r) => {
+      const id = r.asin ?? "unknown";
+      const a = asinMap[id] ??= { asin: id, title: r.productTitle ?? "", brand: r.brand ?? "Unknown", revenue: 0, units: 0, returns: 0 };
+      a.glanceViews = (a.glanceViews ?? 0) + toNum(r.glanceViews);
+    });
+    const asins = Object.values(asinMap).map((a) => ({
+      ...a,
+      returnRate: safeDiv(a.returns, a.units),
+      cvr: a.glanceViews ? safeDiv(a.units, a.glanceViews) : 0
+    }));
+    const totalSpend = keywords.reduce((s, k) => s + k.spend, 0);
+    const totalAdSales = keywords.reduce((s, k) => s + k.sales, 0);
+    const totalClicks = keywords.reduce((s, k) => s + k.clicks, 0);
+    const totalImpr = keywords.reduce((s, k) => s + k.impressions, 0);
+    const totalOrders = keywords.reduce((s, k) => s + k.orders, 0);
+    const orderedRevenue = asins.reduce((s, a) => s + a.revenue, 0);
+    const orderedUnits = asins.reduce((s, a) => s + a.units, 0);
+    const totalReturns = asins.reduce((s, a) => s + a.returns, 0);
+    const zeroSaleSpend = keywords.filter((k) => k.spend >= 5 && k.sales === 0).reduce((s, k) => s + k.spend, 0);
+    const highAcosOverspend = keywords.filter((k) => k.sales > 0 && k.acos > 0.5).reduce((s, k) => s + (k.spend - k.sales * 0.4), 0);
+    const wasteTotal = Math.max(0, zeroSaleSpend + highAcosOverspend);
+    const avgAcos = safeDiv(totalSpend, totalAdSales);
+    const wasteRatio = safeDiv(wasteTotal, totalSpend);
+    const returnRate = safeDiv(totalReturns, orderedUnits);
+    let healthScore = 0;
+    if (hasAds) {
+      const spendEff = Math.max(0, 70 * (1 - Math.min(1, wasteRatio * 2)));
+      const structHealthy = keywords.filter((k) => k.acos > 0 && k.acos < 0.35 && k.sales > 0).length;
+      const structQuality = 30 * safeDiv(structHealthy, keywords.length || 1);
+      healthScore = Math.round(spendEff + structQuality);
+    } else if (hasSales) {
+      healthScore = Math.round(100 * (1 - Math.min(1, returnRate * 3)));
+    }
+    const scoreLabel = healthScore >= 80 ? "Healthy" : healthScore >= 60 ? "Needs Attention" : healthScore >= 40 ? "At Risk" : "Critical";
+    if (!hasAds) warnings.push("No bulk campaign file \u2014 ads/keyword analysis unavailable. Upload a Sponsored Products bulk sheet.");
+    if (!hasSales) warnings.push("No sales file \u2014 revenue/return analysis unavailable. Upload a Vendor or Seller sales report.");
+    return {
+      available: { ads: hasAds, sales: hasSales, traffic: trafficRows.length > 0, inventory: invRows.length > 0, account },
+      summary: {
+        totalSpend,
+        totalAdSales,
+        totalClicks,
+        totalImpressions: totalImpr,
+        totalOrders,
+        avgAcos,
+        avgCvr: safeDiv(totalOrders, totalClicks),
+        avgCtr: safeDiv(totalClicks, totalImpr),
+        avgCpc: safeDiv(totalSpend, totalClicks),
+        orderedRevenue,
+        orderedUnits,
+        returnRate,
+        campaignCount: campaigns.length,
+        keywordCount: keywords.filter((k) => k.keyword !== "(campaign-level)").length,
+        asinCount: asins.length,
+        wasteTotal,
+        healthScore,
+        scoreLabel
+      },
+      campaigns,
+      keywords,
+      asins,
+      warnings
+    };
+  }
+  return __toCommonJS(entry_exports);
+})();
+</script>
+<script>
+// ── GPT endpoint config ──
+// Local file (double-click): leave empty → deterministic expert answers.
+// Deployed on Vercel: set to '/api/ask' → GPT-4o narrates on top.
+window.AUDITRON_API = '';   // ⚠ Bob: change to '/api/ask' after deploying the route
+const E = AuditEngine;
+let AUDIT = null;
+const $ = s => document.querySelector(s);
+const status=(t,ready)=>{$('#statusTxt').textContent=t;$('#status').classList.toggle('ready',!!ready)};
+
+const drop=$('#drop'),fileInput=$('#file');
+['dragenter','dragover'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('hot')}));
+['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('hot')}));
+drop.addEventListener('drop',ev=>handle(ev.dataTransfer.files));
+fileInput.addEventListener('change',ev=>handle(ev.target.files));
+
+// ── Build an off-thread worker from the inlined engine so 250K-row files
+//    never freeze the page. The worker imports XLSX from CDN + the engine. ──
+function makeWorker(){
+  const code = `
+    importScripts('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+    ${document.getElementById('engineSrc').textContent}
+    const E = AuditEngine;
+    const SEARCH_TERM_CAP = 20000;
+    self.onmessage = async (e) => {
+      try{
+        const files = e.data;
+        const detected = [];
+        for(let fi=0; fi<files.length; fi++){
+          const f = files[fi];
+          self.postMessage({type:'progress',pct:5+(fi/files.length)*15,txt:'Opening '+f.name+'…'});
+          const wb = XLSX.read(f.buffer,{type:'array',dense:true,cellStyles:false,cellNF:false,cellFormula:false});
+          const multi = wb.SheetNames.length>1;
+          const usable = wb.SheetNames.filter(n=>{
+            if(/portfolio|help|read ?me|instructions|glossary|^config$/i.test(n))return false;
+            if(multi && /^sheet\\d+$/i.test(n))return false; return true;
+          });
+          for(let si=0; si<usable.length; si++){
+            const name = usable[si];
+            const base = 20+(fi/files.length)*78, span=(1/files.length)*78;
+            self.postMessage({type:'progress',pct:base+(si/usable.length)*span,txt:'Reading "'+name+'"…'});
+            await new Promise(r=>setTimeout(r,0));
+            const isST = /search term/i.test(name);
+            const rows = XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:'',blankrows:false});
+            // reuse engine's detect via re-emitting objects: find header + map
+            const objs = toObjects(rows, isST?SEARCH_TERM_CAP:0);
+            if(!objs.rows.length) continue;
+            const d = E.detectAndMap(objs.rows, name);
+            if(objs.sampled) d.warnings.push('Large tab "'+name+'" sampled: '+objs.rows.length.toLocaleString()+' of '+objs.total.toLocaleString()+' rows analyzed for speed.');
+            if(d.kind!=='unknown'||d.rowCount>5){ d.fileName=f.name; detected.push(d); }
+          }
+        }
+        self.postMessage({type:'progress',pct:99,txt:'Building audit…'});
+        const audit = E.buildAudit(detected);
+        self.postMessage({type:'done',detected,audit});
+      }catch(err){ self.postMessage({type:'error',message:String(err&&err.message||err)}); }
+    };
+    function toObjects(matrix,cap){
+      if(!matrix.length)return{rows:[],sampled:false,total:0};
+      const tokens=['campaign','asin','keyword','impressions','clicks','spend','units','sessions','ordered','sku','glance','revenue','page views','product title','brand','match type'];
+      const isBanner=c=>String(c).indexOf('=[')>=0||/^(program|distributor view|view by|countries|businesses|locale|currency|reporting range|viewing range|report updated)/i.test(String(c).trim());
+      let hr=0,bs=-Infinity;
+      for(let i=0;i<Math.min(matrix.length,15);i++){
+        const cells=(matrix[i]||[]).map(c=>String(c==null?'':c));
+        const lo=cells.map(c=>c.toLowerCase());
+        const ne=lo.filter(c=>c.trim()!=='').length;
+        const th=lo.filter(c=>tokens.some(t=>c.includes(t))).length;
+        const bh=cells.filter(isBanner).length;
+        const sc=th*5+ne-bh*20; if(sc>bs){bs=sc;hr=i;}
+      }
+      const headers=(matrix[hr]||[]).map(h=>String(h==null?'':h).trim());
+      const start=hr+1, td=matrix.length-start;
+      const limit=cap>0&&td>cap?start+cap:matrix.length;
+      const rows=[];
+      for(let i=start;i<limit;i++){const row=matrix[i]||[];if(row.every(c=>c===''||c==null))continue;const o={};headers.forEach((h,j)=>{if(h)o[h]=row[j];});rows.push(o);}
+      return{rows,sampled:limit<matrix.length,total:td};
+    }
+  `;
+  return new Worker(URL.createObjectURL(new Blob([code],{type:'application/javascript'})));
+}
+
+async function handle(files){
+  if(!files||!files.length)return;
+  $('#prog').classList.add('on');
+  const setProg=(pct,txt)=>{$('#fill').style.width=Math.min(100,pct)+'%';$('#progTxt').textContent=txt;};
+  setProg(3,'Loading files…');
+  status('Parsing…');
+  // read arraybuffers on main thread (fast), hand to worker for the heavy parse
+  const payload=[];
+  for(const f of files){ payload.push({name:f.name, buffer:await f.arrayBuffer()}); }
+
+  const detected = await new Promise((resolve,reject)=>{
+    const w=makeWorker();
+    w.onmessage=(ev)=>{
+      const m=ev.data;
+      if(m.type==='progress') setProg(m.pct,m.txt);
+      else if(m.type==='done'){ AUDIT=m.audit; setProg(100,'Done'); w.terminate(); resolve(m.detected); }
+      else if(m.type==='error'){ w.terminate(); reject(new Error(m.message)); }
+    };
+    w.postMessage(payload, payload.map(p=>p.buffer)); // transfer buffers (zero-copy)
+  }).catch(err=>{ setProg(0,'Error: '+err.message); status('Parse failed'); return null; });
+
+  if(!detected){ return; }
+  setTimeout(()=>$('#prog').classList.remove('on'),600);
+  // render file chips
+  const kindLabel={bulk_campaign:'ads',sp_search_term:'ads',sales_vendor:'sales',sales_seller:'sales',traffic:'traffic',inventory:'traffic',unknown:'unknown'};
+  $('#files').innerHTML=detected.map(d=>{
+    const k=kindLabel[d.kind]||'unknown';
+    const nm=(d.fileName||'sheet').slice(0,26);
+    return `<div class="fchip"><span class="k ${k}">${d.kind.replace('_',' ')}</span><span>${nm}</span><span class="rows mono">${d.rowCount.toLocaleString()} rows</span></div>`;
+  }).join('');
+  // AUDIT already built inside the worker
+  renderDash();
+  status(`${detected.length} sheet(s) · ${AUDIT.available.account} account`,true);
+}
+
+function renderDash(){
+  const s=AUDIT.summary;
+  $('#hero').style.paddingBottom='10px';
+  $('#dash').classList.add('on');
+  const f$=n=>n>=1e6?'$'+(n/1e6).toFixed(2)+'M':n>=1e3?'$'+(n/1e3).toFixed(1)+'K':'$'+n.toFixed(0);
+  const cards=[
+    {lbl:'Health Score',val:s.healthScore+' ',cls:'score'},
+    {lbl:'Total Ad Spend',val:f$(s.totalSpend)},
+    {lbl:'Ordered Revenue',val:f$(s.orderedRevenue)},
+    {lbl:'Est. Waste',val:f$(s.wasteTotal)},
+    {lbl:'Avg ACOS',val:(s.avgAcos*100).toFixed(1)+'%'},
+    {lbl:'Return Rate',val:(s.returnRate*100).toFixed(1)+'%'},
+  ];
+  $('#cards').innerHTML=cards.map(c=>`<div class="card ${c.cls||''}"><div class="lbl">${c.lbl}</div><div class="val mono">${c.val}</div></div>`).join('');
+  $('#chatMeta').textContent=`${s.campaignCount} campaigns · ${s.keywordCount} keywords · ${s.asinCount} ASINs`;
+  // warnings
+  $('#dashWarns').innerHTML=AUDIT.warnings.map(w=>`<div class="w">⚠ ${w}</div>`).join('');
+  // suggestions adapt to what's available
+  const sug=[];
+  if(AUDIT.available.ads){sug.push('Which keywords waste the most spend?','Show top 10 high-ACOS keywords','What campaigns have zero sales?');}
+  if(AUDIT.available.sales){sug.push('Which ASINs have the highest return rate?','What are my top revenue products?');}
+  sug.push('Give me an account summary','What should I fix first?');
+  $('#sugg').innerHTML=sug.slice(0,6).map(q=>`<button>${q}</button>`).join('');
+  $('#sugg').querySelectorAll('button').forEach(b=>b.onclick=()=>ask(b.textContent));
+  if(!$('#msgs').children.length) addBot({headline:`Loaded — ${AUDIT.available.account} account, health ${s.healthScore}/100 (${s.scoreLabel}).`,prose:['I\u2019ve analyzed your files. Ask me anything, or tap a suggestion below.'],table:null,steps:[]});
+}
+
+// ── local query engine (the "answers" — deterministic, GPT-ready) ──
+function answer(q){
+  const s=AUDIT.summary, K=AUDIT.keywords, A=AUDIT.asins, C=AUDIT.campaigns;
+  const ql=q.toLowerCase();
+  const f$=n=>n>=1e3?'$'+(n/1e3).toFixed(1)+'K':'$'+n.toFixed(2);
+  const fp=n=>(n*100).toFixed(1)+'%';
+  const N=(ql.match(/\b(\d{1,3})\b/)||[])[1], lim=N?Math.min(+N,50):10;
+
+  if(/return/.test(ql)&&AUDIT.available.sales){
+    const r=A.filter(a=>a.units>3).sort((a,b)=>b.returnRate-a.returnRate).slice(0,lim);
+    return {headline:`${r.length} ASINs ranked by return rate — account avg ${fp(s.returnRate)}`,
+      prose:[r[0]?`Worst is ${r[0].asin} at ${fp(r[0].returnRate)} across ${r[0].units} units. High returns usually mean a listing/sizing mismatch, not an ads problem.`:'No return data.'],
+      table:{cols:['ASIN','Product','Return %','Units','Revenue'],rows:r.map(a=>[a.asin,(a.title||'').slice(0,28),fp(a.returnRate),a.units.toLocaleString(),f$(a.revenue)])},
+      steps:['Pull 1-3 star reviews for the top offenders to find the root cause','Fix sizing charts and images before spending more on these ASINs']};
+  }
+  if(/waste|zero|no sale|burn/.test(ql)&&AUDIT.available.ads){
+    const z=K.filter(k=>k.spend>=5&&k.sales===0).sort((a,b)=>b.spend-a.spend).slice(0,lim);
+    const waste=z.reduce((x,k)=>x+k.spend,0);
+    return {headline:`${z.length} keywords burning ${f$(waste)} with zero sales`,
+      prose:[`These ${z.length} keywords each spent \u2265$5 and returned nothing. Worst is "${z[0]?.keyword}" at ${f$(z[0]?.spend||0)}.`],
+      table:{cols:['Keyword','Match','Campaign','Spend','Clicks'],rows:z.map(k=>[k.keyword,k.matchType,(k.campaignName||'').slice(0,22),f$(k.spend),k.clicks])},
+      steps:[`Pause these ${z.length} keywords to recover ${f$(waste)}`,'Add them as exact-match negatives to stop broad-match bleed']};
+  }
+  if(/acos|expensive/.test(ql)&&AUDIT.available.ads){
+    const h=K.filter(k=>k.sales>0&&k.acos>0.4).sort((a,b)=>b.acos-a.acos).slice(0,lim);
+    return {headline:`${h.length} keywords above 40% ACOS`,
+      prose:[h[0]?`Highest is "${h[0].keyword}" at ${fp(h[0].acos)}. These convert but at a loss — cut bids rather than pause.`:'No high-ACOS keywords.'],
+      table:{cols:['Keyword','ACOS','Spend','Sales','Clicks'],rows:h.map(k=>[k.keyword,fp(k.acos),f$(k.spend),f$(k.sales),k.clicks])},
+      steps:['Cut bids 20-30% on the top offenders','Add negatives for irrelevant search terms driving these up']};
+  }
+  if(/revenue|top.*product|best.*sell/.test(ql)&&AUDIT.available.sales){
+    const t=A.sort((a,b)=>b.revenue-a.revenue).slice(0,lim);
+    return {headline:`Top ${t.length} products by ordered revenue`,
+      prose:[`Your top seller is ${t[0]?.asin} at ${f$(t[0]?.revenue||0)}.`],
+      table:{cols:['ASIN','Product','Revenue','Units','Return %'],rows:t.map(a=>[a.asin,(a.title||'').slice(0,28),f$(a.revenue),a.units.toLocaleString(),fp(a.returnRate)])},
+      steps:['Protect these with defensive branded campaigns','Ensure they never go out of stock']};
+  }
+  // summary / fallback
+  return {headline:`Account health ${s.healthScore}/100 — ${s.scoreLabel}`,
+    prose:[`${AUDIT.available.account} account. Ad spend ${f$(s.totalSpend)}, ordered revenue ${f$(s.orderedRevenue)}, avg ACOS ${fp(s.avgAcos)}, return rate ${fp(s.returnRate)}.`,`Estimated recoverable waste: ${f$(s.wasteTotal)}.`],
+    table:null,
+    steps:[AUDIT.available.ads?`Recover ${f$(s.wasteTotal)} by pausing zero-sale keywords`:'Upload a bulk campaign file for ads analysis',AUDIT.available.sales?'Attack your highest-return ASINs':'Upload a sales report for revenue analysis']};
+}
+
+function addBot(a){
+  const m=document.createElement('div');m.className='m';
+  let h=`<div class="b a"><div class="hl">${a.headline}</div>`;
+  h+=(a.prose||[]).map(p=>`<p>${p}</p>`).join('');
+  if(a.table&&a.table.rows.length){h+='<div class="tbl"><table><thead><tr>'+a.table.cols.map(c=>`<th>${c}</th>`).join('')+'</tr></thead><tbody>'+a.table.rows.map(r=>'<tr>'+r.map(c=>`<td class="mono">${c}</td>`).join('')+'</tr>').join('')+'</tbody></table></div>';}
+  if(a.steps&&a.steps.length){h+='<div class="steps">'+a.steps.map((s,i)=>`<div class="s"><span class="n">${i+1}</span>${s}</div>`).join('')+'</div>';}
+  h+='</div>';m.innerHTML=h;$('#msgs').appendChild(m);$('#msgs').scrollTop=1e6;
+}
+function ask(q){
+  q=(q||$('#q').value).trim();if(!q||!AUDIT)return;$('#q').value='';
+  const um=document.createElement('div');um.className='m u';um.innerHTML=`<div class="b u">${q}</div>`;$('#msgs').appendChild(um);
+  const computed=answer(q);
+  // typing bubble
+  const t=document.createElement('div');t.className='m';t.innerHTML='<div class="b a"><div class="typing"><span></span><span></span><span></span></div></div>';$('#msgs').appendChild(t);$('#msgs').scrollTop=1e6;
+
+  // Numbers/table render from the engine regardless of GPT. GPT only writes prose.
+  // If no API endpoint is configured (running as a local file), fall back to the
+  // deterministic facts so the answer is never blank.
+  const useGPT = (window.AUDITRON_API || '') !== '';
+  const finish = (prose)=>{ t.remove(); addBot({...computed, prose: prose || computed.prose}); };
+
+  if(!useGPT){ setTimeout(()=>finish(null),350); return; }
+
+  fetch(window.AUDITRON_API, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      question:q, account: AUDIT.available.account,
+      computed:{ headline:computed.headline, facts:computed.facts||computed.prose||[],
+                 table: computed.table? {cols:computed.table.cols, rows:computed.table.rows}:null,
+                 steps: computed.steps||[] }
+    })
+  }).then(r=>r.json()).then(d=>{
+    finish(d.answer ? d.answer.split('\n').filter(Boolean) : null);
+  }).catch(()=>finish(null));
+}
+$('#ask').onclick=()=>ask();
+$('#q').addEventListener('keydown',e=>{if(e.key==='Enter')ask()});
+</script>
+</body></html>
