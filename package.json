@@ -1,0 +1,21 @@
+{
+  "name": "auditron",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "next build",
+    "start": "next start",
+    "dev": "next dev"
+  },
+  "dependencies": {
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "openai": "latest"
+  },
+  "devDependencies": {
+    "typescript": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest"
+  }
+}
