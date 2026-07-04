@@ -316,7 +316,7 @@ td.mono{font-family:'IBM Plex Mono',monospace}
   }
 
   // lib/ingest.ts
-  var XLSX = __toESM(__require("xlsx"));
+  var XLSX = window.XLSX;
   function findHeaderRow(matrix) {
     const tokens = ["campaign", "asin", "keyword", "impressions", "clicks", "spend", "units", "sessions", "ordered", "sku", "glance", "revenue", "page views", "product title", "brand", "match type"];
     const isBannerCell = (c) => /=\[/.test(c) || /^(program|distributor view|view by|countries|businesses|locale|currency|reporting range|viewing range|report updated)/i.test(c.trim());
